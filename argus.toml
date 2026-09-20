@@ -24,3 +24,36 @@ max_records = 40
 # defaults: SEC, CFTC, Treasury, Fed, OFAC — rules and proposed rules only
 # agencies = ["securities-and-exchange-commission"]
 # types = ["RULE", "PRORULE"]
+
+[kalshi]
+move_threshold = 0.05
+min_volume_24h = 500      # contracts, not dollars
+# exclude_categories = ["Sports", "Entertainment", "Social"]
+
+[gpr]
+spike_ratio = 1.4         # MA7/MA30 entering spike territory
+level_alert = 250.0       # daily GPRD level
+
+[epu]
+spike_ratio = 2.0         # daily value vs its trailing 30d mean
+level_alert = 500.0
+
+[warn_tx]
+min_layoffs = 50          # ignore small notices
+big_layoff = 500          # importance 4 above this
+
+[usaspending]
+min_amount = 50e6
+huge_amount = 250e6       # importance 4 above this
+lookback_days = 7
+
+[portwatch]
+disruption_ratio = 0.7    # 7d/30d transits below this = disruption alert
+surge_ratio = 1.4
+
+[clinicaltrials]
+# statuses = "TERMINATED|SUSPENDED|WITHDRAWN"
+
+[courtlistener]
+queries = ['"securities fraud"']
+# api_token = ""          # free at courtlistener.com; raises rate limits

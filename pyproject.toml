@@ -9,6 +9,7 @@ authors = [{ name = "Vito Ciciretti" }]
 dependencies = [
     "requests>=2.31",
     "pandas>=2.0",
+    "xlrd>=2.0",  # GPR daily index ships as .xls
 ]
 
 [project.optional-dependencies]

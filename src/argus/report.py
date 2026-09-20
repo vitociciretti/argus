@@ -10,7 +10,19 @@ import re
 
 from .core.base import Finding, ScanResult
 
-CATEGORY_ORDER = ["sanctions", "regulatory", "prediction-markets", "news-events"]
+CATEGORY_ORDER = [
+    "sanctions",
+    "legal",
+    "regulatory",
+    "labor",
+    "biotech",
+    "gov-spending",
+    "geopolitical-risk",
+    "policy-uncertainty",
+    "trade-chokepoints",
+    "prediction-markets",
+    "news-events",
+]
 LOW_IMPORTANCE_CAP = 10
 WATCHLIST_KEYS = ("tickers", "countries", "commodities", "terms")
 

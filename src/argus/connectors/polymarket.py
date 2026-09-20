@@ -9,7 +9,7 @@ import json
 import re
 
 from ..core import http
-from ..core.base import Connector, Finding, Record, utcnow
+from ..core.base import Connector, Record, probability_move_findings, utcnow
 
 GAMMA_URL = "https://gamma-api.polymarket.com/markets"
 
@@ -71,23 +71,9 @@ class Polymarket(Connector):
         ]
 
     def metric_findings(self, records, state, first_run):
-        threshold = float(self.cfg.get("move_threshold", 0.05))
-        min_volume = float(self.cfg.get("min_volume_24h", 10_000))
-        findings = []
-        for r in records:
-            prob = r.metrics["probability"]
-            prev = state.get_metric(r.uid, "probability")
-            state.set_metric(r.uid, "probability", prob)
-            if prev is None or r.metrics["volume_24h"] < min_volume:
-                continue
-            delta = prob - prev
-            if abs(delta) >= threshold:
-                findings.append(
-                    Finding(
-                        r,
-                        f"probability {prev:.0%} -> {prob:.0%} ({delta * 100:+.0f}pp)",
-                        importance=4 if abs(delta) >= 0.10 else 3,
-                        extra={"from": prev, "to": prob},
-                    )
-                )
-        return findings
+        return probability_move_findings(
+            records,
+            state,
+            threshold=float(self.cfg.get("move_threshold", 0.05)),
+            min_volume=float(self.cfg.get("min_volume_24h", 10_000)),
+        )

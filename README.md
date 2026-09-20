@@ -68,10 +68,23 @@ gap since the previous one.
 
 | name | category | signal |
 |---|---|---|
-| `polymarket` | prediction-markets | probability moves >= threshold on liquid markets |
-| `federal_register` | regulatory | new rules/proposed rules from SEC, CFTC, Treasury, Fed, OFAC |
 | `ofac_sdn` | sanctions | new SDN designations |
+| `courtlistener` | legal | new federal dockets matching watch queries |
+| `federal_register` | regulatory | new rules/proposed rules from SEC, CFTC, Treasury, Fed, OFAC |
+| `warn_tx` | labor | new Texas WARN layoff notices (more states: roadmap) |
+| `clinicaltrials` | biotech | industry trials newly terminated/suspended/withdrawn |
+| `usaspending` | gov-spending | new federal contract transactions >= $50M |
+| `gpr` | geopolitical-risk | Geopolitical Risk Index spike (MA7/MA30) or level alert |
+| `epu` | policy-uncertainty | US EPU spike vs trailing 30d mean or level alert |
+| `portwatch` | trade-chokepoints | chokepoint transits entering disruption/surge vs 30d baseline |
+| `polymarket` | prediction-markets | probability moves >= threshold on liquid markets |
+| `kalshi` | prediction-markets | probability moves on macro/event markets (CFTC-regulated) |
 | `gdelt` | news-events | new headlines matching watch terms |
+
+All twelve are keyless. CourtListener optionally takes a free `api_token` for
+higher rate limits. Index-style sources (GPR, EPU, PortWatch) alert on
+**threshold crossings**, not levels, so a sustained crisis fires once on entry
+instead of every day.
 
 ## Writing a connector
 
@@ -103,10 +116,11 @@ Rules of the house:
 - [x] Core: Record/Finding, delta state store, polite HTTP, CLI
 - [x] Example connectors: polymarket, federal_register, ofac_sdn, gdelt
 - [x] Daily digest report (`argus report`) with watchlist boosting
+- [x] Full keyless connector build-out (12 sources across 11 categories)
 - [ ] Telegram/MP3 delivery of the daily report
-- [ ] Full connector build-out: WARN notices, CourtListener, Kalshi, GPR/EPU,
-      IMF PortWatch, ACLED, AGSI gas storage, ENTSO-E, USAspending,
-      ClinicalTrials/FDA, certificate transparency, ADS-B
+- [ ] Key-gated connectors: ACLED, AGSI gas storage, ENTSO-E (free registration)
+- [ ] More WARN states (CA, NY, WA), FDA warning letters, certificate
+      transparency, ADS-B
 - [ ] Daily CI run of every connector — find breakage before users do
 
 ## Legal note

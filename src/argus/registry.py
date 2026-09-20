@@ -1,13 +1,35 @@
 from __future__ import annotations
 
+from .connectors.clinicaltrials import ClinicalTrials
+from .connectors.courtlistener import CourtListener
+from .connectors.epu import Epu
 from .connectors.federal_register import FederalRegister
 from .connectors.gdelt import Gdelt
+from .connectors.gpr import Gpr
+from .connectors.kalshi import Kalshi
 from .connectors.ofac_sdn import OfacSdn
 from .connectors.polymarket import Polymarket
+from .connectors.portwatch import PortWatch
+from .connectors.usaspending import UsaSpending
+from .connectors.warn_tx import WarnTx
 from .core.base import Connector
 
 CONNECTORS: dict[str, type[Connector]] = {
-    c.name: c for c in (Polymarket, FederalRegister, OfacSdn, Gdelt)
+    c.name: c
+    for c in (
+        Polymarket,
+        Kalshi,
+        FederalRegister,
+        OfacSdn,
+        Gdelt,
+        Gpr,
+        Epu,
+        WarnTx,
+        UsaSpending,
+        PortWatch,
+        ClinicalTrials,
+        CourtListener,
+    )
 }
 
 

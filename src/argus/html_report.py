@@ -16,7 +16,14 @@ from .report import CATEGORY_ORDER, LOW_IMPORTANCE_CAP, sort_findings
 IMPORTANCE_COLORS = {5: "#f43f5e", 4: "#fb923c", 3: "#fbbf24", 2: "#38bdf8", 1: "#64748b"}
 CATEGORY_ICONS = {
     "sanctions": "&#128683;",           # 🚫
+    "legal": "&#9878;&#65039;",         # ⚖️
     "regulatory": "&#127963;&#65039;",  # 🏛️
+    "labor": "&#128188;",               # 💼
+    "biotech": "&#129514;",             # 🧪
+    "gov-spending": "&#127974;",        # 🏦
+    "geopolitical-risk": "&#127758;",   # 🌎
+    "policy-uncertainty": "&#128200;",  # 📈
+    "trade-chokepoints": "&#128674;",   # 🚢
     "prediction-markets": "&#127919;",  # 🎯
     "news-events": "&#128225;",         # 📡
 }

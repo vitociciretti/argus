@@ -53,3 +53,20 @@ def get(
     _last_hit[host] = time.monotonic()
     resp.raise_for_status()
     return resp
+
+
+def post_json(
+    url: str,
+    payload: dict,
+    min_interval: float = 1.0,
+    timeout: float = 60.0,
+) -> requests.Response:
+    """POST for read-only search APIs that take JSON bodies (USAspending)."""
+    host = urlparse(url).netloc
+    wait = _last_hit.get(host, 0.0) + min_interval - time.monotonic()
+    if wait > 0:
+        time.sleep(wait)
+    resp = session(retries=False).post(url, json=payload, timeout=timeout)
+    _last_hit[host] = time.monotonic()
+    resp.raise_for_status()
+    return resp

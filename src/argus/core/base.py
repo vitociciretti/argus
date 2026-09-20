@@ -107,3 +107,63 @@ class Connector(abc.ABC):
         """Override to flag metric moves. Implementations must persist the new
         baseline via state.set_metric() for every record, including on first run."""
         return []
+
+
+def probability_move_findings(
+    records: list[Record],
+    state: StateStore,
+    threshold: float,
+    min_volume: float,
+) -> list[Finding]:
+    """Shared move detector for prediction-market connectors: flag probability
+    changes >= threshold on markets above the volume floor. Always stores the
+    new baseline, including on first sight."""
+    findings = []
+    for r in records:
+        prob = r.metrics.get("probability")
+        if prob is None:
+            continue
+        prev = state.get_metric(r.uid, "probability")
+        state.set_metric(r.uid, "probability", prob)
+        if prev is None or r.metrics.get("volume_24h", 0.0) < min_volume:
+            continue
+        delta = prob - prev
+        if abs(delta) >= threshold:
+            findings.append(
+                Finding(
+                    r,
+                    f"probability {prev:.0%} -> {prob:.0%} ({delta * 100:+.0f}pp)",
+                    importance=4 if abs(delta) >= 0.10 else 3,
+                    extra={"from": prev, "to": prob},
+                )
+            )
+    return findings
+
+
+def crossing_findings(
+    record: Record,
+    state: StateStore,
+    key: str,
+    value: float,
+    alert_above: float | None = None,
+    alert_below: float | None = None,
+    reason_fmt: str = "{key} at {value:.2f}",
+    importance: int = 4,
+) -> list[Finding]:
+    """Shared threshold-crossing detector for index-style connectors (GPR, EPU,
+    chokepoint ratios): fires only when the value ENTERS the alert zone, not on
+    every scan while it stays there. Always stores the new value."""
+    prev = state.get_metric(record.uid, key)
+    state.set_metric(record.uid, key, value)
+    if prev is None:
+        return []
+
+    def in_zone(v: float) -> bool:
+        return (alert_above is not None and v >= alert_above) or (
+            alert_below is not None and v <= alert_below
+        )
+
+    if in_zone(value) and not in_zone(prev):
+        reason = reason_fmt.format(key=key, value=value, prev=prev)
+        return [Finding(record, reason, importance, extra={"from": prev, "to": value})]
+    return []
