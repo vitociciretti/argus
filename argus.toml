@@ -57,3 +57,44 @@ surge_ratio = 1.4
 [courtlistener]
 queries = ['"securities fraud"']
 # api_token = ""          # free at courtlistener.com; raises rate limits
+
+[edgar_ownership]
+days = 2                  # how many recent business days of the daily index
+# form4_companies = ["Tesla", "NVIDIA"]   # Form 4s only for named companies
+
+[fca_shorts]
+big_pct = 1.0             # importance 3 for new shorts at/above this
+change_pp = 0.2           # flag position changes >= 0.2pp
+
+[cftc_cot]
+swing_pp = 0.05           # flag weekly net-spec swings >= 5pp of OI
+# markets = ["GOLD", "CRUDE OIL", ...]  # substring match on market names
+
+[nyfed_rrp]
+low_alert_bn = 25.0
+high_alert_bn = 400.0
+move_alert_bn = 100.0
+
+[treasury_tga]
+low_alert_bn = 300.0
+move_alert_bn = 75.0
+
+[usgs_quakes]
+min_magnitude = 6.0
+
+[defillama]
+min_tvl = 100e6
+top = 100
+move_pct = 0.20
+
+[wiki_pageviews]
+pages = ["Bank_run", "Recession", "Stock_market_crash", "Hyperinflation"]
+spike_ratio = 3.0
+
+[hn_mentions]
+# terms = []              # defaults to [watchlist] terms
+hot_points = 100
+
+[crtsh]
+# domains = ["yourcompany.com"]   # required — skipped until set
+window_days = 30

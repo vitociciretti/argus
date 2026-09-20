@@ -8,22 +8,25 @@ import sys
 from . import config as config_mod
 from . import html_report as html_mod
 from . import report as report_mod
-from .core.base import ScanResult, records_to_df
+from .core.base import ConfigSkip, ScanResult, records_to_df
 from .core.state import StateStore
 from .registry import CONNECTORS, make
 
 
 def _run_scans(
     names: list[str], cfg: dict, state: StateStore
-) -> tuple[list[ScanResult], list[tuple[str, Exception]]]:
+) -> tuple[list[ScanResult], list[tuple[str, Exception]], list[tuple[str, str]]]:
     results: list[ScanResult] = []
     failures: list[tuple[str, Exception]] = []
+    skipped: list[tuple[str, str]] = []
     for name in names:
         try:
             results.append(make(name, cfg).scan(state))
+        except ConfigSkip as exc:
+            skipped.append((name, str(exc)))
         except Exception as exc:  # a broken source must not kill the run
             failures.append((name, exc))
-    return results, failures
+    return results, failures, skipped
 
 
 def cmd_list(args: argparse.Namespace, cfg: dict) -> int:
@@ -46,7 +49,7 @@ def cmd_fetch(args: argparse.Namespace, cfg: dict) -> int:
 def cmd_scan(args: argparse.Namespace, cfg: dict) -> int:
     state = StateStore(args.state)
     names = args.sources or sorted(CONNECTORS)
-    results, failures = _run_scans(names, cfg, state)
+    results, failures, skipped = _run_scans(names, cfg, state)
     total = 0
     for r in results:
         note = " (first run: baseline seeded)" if r.first_run else ""
@@ -56,6 +59,8 @@ def cmd_scan(args: argparse.Namespace, cfg: dict) -> int:
             print(f"      {f.reason} | {f.record.url}")
         total += len(r.findings)
     print(f"\n=> {total} finding(s) across {len(results)} source(s)")
+    for name, msg in skipped:
+        print(f"-- {name} skipped: {msg}")
     for name, exc in failures:
         print(f"!! {name} failed: {exc}", file=sys.stderr)
     return 1 if failures else 0
@@ -64,10 +69,10 @@ def cmd_scan(args: argparse.Namespace, cfg: dict) -> int:
 def cmd_report(args: argparse.Namespace, cfg: dict) -> int:
     state = StateStore(args.state)
     names = args.sources or sorted(CONNECTORS)
-    results, failures = _run_scans(names, cfg, state)
+    results, failures, skipped = _run_scans(names, cfg, state)
     report_mod.apply_watchlist(results, report_mod.watchlist_terms(cfg))
     date_str = dt.date.today().isoformat()
-    text = report_mod.render(results, failures, date_str)
+    text = report_mod.render(results, failures, date_str, skipped)
     print(text)
     if not args.no_write:
         out_dir = pathlib.Path(args.out)
@@ -75,7 +80,7 @@ def cmd_report(args: argparse.Namespace, cfg: dict) -> int:
         md_path = out_dir / f"{date_str}.md"
         md_path.write_text(text)
         html_path = out_dir / f"{date_str}.html"
-        html_path.write_text(html_mod.render_html(results, failures, date_str))
+        html_path.write_text(html_mod.render_html(results, failures, date_str, skipped))
         print(f"[written to {md_path} and {html_path}]", file=sys.stderr)
         if args.open:
             import webbrowser

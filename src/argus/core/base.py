@@ -21,6 +21,11 @@ def utcnow() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
+class ConfigSkip(Exception):
+    """Raised by a connector whose required config is absent (e.g. no domains
+    for crt.sh). Rendered as 'skipped', not as a failure."""
+
+
 @dataclasses.dataclass
 class Record:
     uid: str                # globally unique, stable across fetches: "source:native_id"

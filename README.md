@@ -77,14 +77,26 @@ gap since the previous one.
 | `gpr` | geopolitical-risk | Geopolitical Risk Index spike (MA7/MA30) or level alert |
 | `epu` | policy-uncertainty | US EPU spike vs trailing 30d mean or level alert |
 | `portwatch` | trade-chokepoints | chokepoint transits entering disruption/surge vs 30d baseline |
+| `edgar_ownership` | ownership | new SCHEDULE 13D/13G stakes; Form 4 for watched companies |
+| `regsho_threshold` | short-interest | symbols newly on the Nasdaq Reg SHO threshold list |
+| `fca_shorts` | short-interest | new/changed UK disclosed net short positions |
+| `cftc_cot` | positioning | weekly net-spec swings >= 5pp of OI on watched futures |
+| `nyfed_rrp` | liquidity | Fed RRP drain/refill crossings and >= $100bn day moves |
+| `treasury_tga` | liquidity | TGA floor crossings and >= $75bn day moves |
+| `usgs_quakes` | nat-hazards | new M6+ earthquakes |
+| `defillama` | crypto | TVL swings >= 20% on major DeFi protocols |
+| `crtsh` | web-footprint | new TLS certs on watched domains (needs config) |
+| `hn_mentions` | attention | HN stories matching watch terms |
+| `wiki_pageviews` | attention | canary-article pageview spikes (e.g. "Bank run") |
 | `polymarket` | prediction-markets | probability moves >= threshold on liquid markets |
 | `kalshi` | prediction-markets | probability moves on macro/event markets (CFTC-regulated) |
 | `gdelt` | news-events | new headlines matching watch terms |
 
-All twelve are keyless. CourtListener optionally takes a free `api_token` for
-higher rate limits. Index-style sources (GPR, EPU, PortWatch) alert on
-**threshold crossings**, not levels, so a sustained crisis fires once on entry
-instead of every day.
+All 24 are keyless (crtsh just needs domains configured). CourtListener
+optionally takes a free `api_token` for higher rate limits. Index-style
+sources (GPR, EPU, PortWatch, RRP/TGA, pageviews) alert on **threshold
+crossings**, not levels, so a sustained crisis fires once on entry instead of
+every day.
 
 ## Writing a connector
 
@@ -116,11 +128,12 @@ Rules of the house:
 - [x] Core: Record/Finding, delta state store, polite HTTP, CLI
 - [x] Example connectors: polymarket, federal_register, ofac_sdn, gdelt
 - [x] Daily digest report (`argus report`) with watchlist boosting
-- [x] Full keyless connector build-out (12 sources across 11 categories)
+- [x] Full keyless connector build-out (24 sources across 19 categories)
+- [x] Daily connector-health CI (GitHub Actions, runs every fetch on fresh state)
 - [ ] Telegram/MP3 delivery of the daily report
 - [ ] Key-gated connectors: ACLED, AGSI gas storage, ENTSO-E (free registration)
-- [ ] More WARN states (CA, NY, WA), FDA warning letters, certificate
-      transparency, ADS-B
+- [ ] More WARN states (CA, NY, WA), NYSE threshold list, FDA warning letters,
+      ADS-B, Reg SHO re-entry detection
 - [ ] Daily CI run of every connector — find breakage before users do
 
 ## Legal note

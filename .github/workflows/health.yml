@@ -1,0 +1,22 @@
+# Daily connector health run: fetch every source against a fresh state so
+# breakage is discovered here, not in someone's morning report.
+name: connector-health
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+      - name: fetch every connector against fresh state
+        run: argus scan --state /tmp/health-state.db

@@ -14,12 +14,20 @@ CATEGORY_ORDER = [
     "sanctions",
     "legal",
     "regulatory",
+    "ownership",
+    "short-interest",
+    "positioning",
     "labor",
     "biotech",
     "gov-spending",
+    "liquidity",
     "geopolitical-risk",
     "policy-uncertainty",
     "trade-chokepoints",
+    "nat-hazards",
+    "crypto",
+    "web-footprint",
+    "attention",
     "prediction-markets",
     "news-events",
 ]
@@ -66,7 +74,9 @@ def render(
     results: list[ScanResult],
     failures: list[tuple[str, Exception]],
     date_str: str,
+    skipped: list[tuple[str, str]] | None = None,
 ) -> str:
+    skipped = skipped or []
     all_findings = [f for r in results for f in r.findings]
     watch_hits = _sorted([f for f in all_findings if f.watchlist])
 
@@ -114,6 +124,8 @@ def render(
             lines.append(f"- {result.source}: WARNING — fetch returned 0 records")
         else:
             lines.append(f"- {result.source}: ok ({result.n_records} records)")
+    for name, msg in skipped:
+        lines.append(f"- {name}: skipped — {msg}")
     for name, exc in failures:
         lines.append(f"- {name}: FAILED — {exc}")
     lines.append("")
