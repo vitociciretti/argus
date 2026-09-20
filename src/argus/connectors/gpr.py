@@ -39,6 +39,8 @@ def parse_gpr(content: bytes) -> tuple[Record, int]:
             "ma30": float(last["GPRD_MA30"]),
             "ratio": ratio,
         },
+        series=[float(v) for v in df["GPRD"].tail(90)],
+        series_name="GPR (geopolitical risk)",
     )
     return record, len(df)
 

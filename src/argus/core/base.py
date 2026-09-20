@@ -37,6 +37,11 @@ class Record:
     entities: list[str] = dataclasses.field(default_factory=list)
     metrics: dict[str, float] = dataclasses.field(default_factory=dict)
     raw: dict[str, Any] = dataclasses.field(default_factory=dict)
+    # Optional pulse series: recent history (oldest -> newest) + a short card
+    # name. Records carrying these appear in the always-on "market pulse"
+    # section of the report, so quiet days still show the state of the world.
+    series: list[float] = dataclasses.field(default_factory=list)
+    series_name: str = ""
 
 
 @dataclasses.dataclass
@@ -55,6 +60,7 @@ class ScanResult:
     findings: list[Finding]
     n_records: int   # 0 records from a live source is a health warning, not quiet
     first_run: bool
+    pulse: list[Record] = dataclasses.field(default_factory=list)  # records with series
 
 
 def records_to_df(records: list[Record]) -> pd.DataFrame:
@@ -101,7 +107,8 @@ class Connector(abc.ABC):
 
         state.add_seen(records)
         state.mark_seeded(self.name)
-        return ScanResult(self.name, self.category, findings, len(records), first_run)
+        pulse = [r for r in records if len(r.series) >= 5 and r.series_name]
+        return ScanResult(self.name, self.category, findings, len(records), first_run, pulse)
 
     def finding_for_new(self, record: Record) -> Finding:
         return Finding(record, "new", self.new_importance)

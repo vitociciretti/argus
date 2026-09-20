@@ -69,6 +69,42 @@ def sort_findings(findings: list[Finding]) -> list[Finding]:
 
 _sorted = sort_findings
 
+SPARK_BLOCKS = "▁▂▃▄▅▆▇█"
+
+
+def spark(series: list[float], width: int = 24) -> str:
+    """Unicode sparkline, downsampled to `width` points."""
+    if len(series) < 2:
+        return ""
+    if len(series) > width:
+        step = len(series) / width
+        series = [series[int(i * step)] for i in range(width)]
+    lo, hi = min(series), max(series)
+    if hi == lo:
+        return SPARK_BLOCKS[0] * len(series)
+    scale = (len(SPARK_BLOCKS) - 1) / (hi - lo)
+    return "".join(SPARK_BLOCKS[int((v - lo) * scale)] for v in series)
+
+
+def week_delta(series: list[float]) -> float | None:
+    """Fractional change of the last point vs ~7 points back."""
+    if len(series) < 2:
+        return None
+    base = series[-8] if len(series) >= 8 else series[0]
+    if base == 0:
+        return None
+    return series[-1] / base - 1
+
+
+def pulse_lines(results: list[ScanResult]) -> list[str]:
+    lines = []
+    for result in results:
+        for r in result.pulse:
+            delta = week_delta(r.series)
+            delta_s = f" ({delta:+.0%} wk)" if delta is not None else ""
+            lines.append(f"- {r.series_name}: {r.series[-1]:,.0f} `{spark(r.series)}`{delta_s}")
+    return lines
+
 
 def render(
     results: list[ScanResult],
@@ -91,6 +127,12 @@ def render(
     if watch_hits:
         lines.append("## Watchlist hits")
         lines.extend(_bullet(f) for f in watch_hits)
+        lines.append("")
+
+    pulse = pulse_lines(results)
+    if pulse:
+        lines.append("## Market pulse")
+        lines.extend(pulse)
         lines.append("")
 
     order = {c: i for i, c in enumerate(CATEGORY_ORDER)}

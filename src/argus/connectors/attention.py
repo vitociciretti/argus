@@ -93,6 +93,8 @@ class WikiPageviews(Connector):
                     f"({ratio:.1f}x its 40d mean)",
                     url=f"https://en.wikipedia.org/wiki/{page}",
                     metrics={"views": float(latest), "ratio": ratio},
+                    series=[float(v) for v in views],
+                    series_name=f'Wiki "{page.replace("_", " ")}" views',
                 )
             )
         if not records:

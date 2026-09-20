@@ -39,6 +39,8 @@ def parse_epu(text: str) -> tuple[Record, int]:
         title=f"US Economic Policy Uncertainty — {value:.0f} (30d mean {mean30:.0f})",
         url="https://www.policyuncertainty.com/",
         metrics={"epu": value, "mean30": mean30, "ratio": ratio},
+        series=[v for _, v in rows[-90:]],
+        series_name="EPU (US policy uncertainty)",
     )
     return record, len(rows)
 

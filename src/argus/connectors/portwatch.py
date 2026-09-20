@@ -19,8 +19,16 @@ QUERY_URL = (
 )
 
 
-def build_records(rows: list[dict]) -> list[Record]:
-    """rows: attribute dicts with date/portid/portname/n_total, newest first."""
+HEADLINE_CHOKEPOINTS = [
+    "Suez Canal", "Panama Canal", "Strait of Hormuz",
+    "Bab el-Mandeb Strait", "Strait of Malacca", "Bosporus Strait",
+]
+
+
+def build_records(rows: list[dict], headline: list[str] | None = None) -> list[Record]:
+    """rows: attribute dicts with date/portid/portname/n_total, newest first.
+    Headline chokepoints get a pulse series; the rest are delta-only."""
+    headline = HEADLINE_CHOKEPOINTS if headline is None else headline
     by_port: dict[str, list[tuple[str, float, str]]] = defaultdict(list)
     for a in rows:
         if a.get("date") and a.get("n_total") is not None:
@@ -37,6 +45,7 @@ def build_records(rows: list[dict]) -> list[Record]:
         base_avg = sum(baseline) / len(baseline)
         ratio = recent_avg / base_avg if base_avg else 1.0
         latest_date, _, portname = series[0]
+        is_headline = portname in headline
         records.append(
             Record(
                 uid=f"portwatch:{portid}",
@@ -47,6 +56,8 @@ def build_records(rows: list[dict]) -> list[Record]:
                 url="https://portwatch.imf.org/",
                 entities=[portname],
                 metrics={"transits_7d": recent_avg, "baseline_30d": base_avg, "ratio": ratio},
+                series=[v for _, v, _ in reversed(series)] if is_headline else [],
+                series_name=f"{portname} transits/day" if is_headline else "",
             )
         )
     return records
@@ -69,7 +80,7 @@ class PortWatch(Connector):
         }
         data = http.get(QUERY_URL, params=params, min_interval=2.0).json()
         rows = [f["attributes"] for f in data.get("features", [])]
-        return build_records(rows)
+        return build_records(rows, self.cfg.get("headline"))
 
     def metric_findings(self, records, state, first_run):
         low = float(self.cfg.get("disruption_ratio", 0.7))

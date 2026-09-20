@@ -35,13 +35,14 @@ class NyFedRrp(Connector):
     report_new = False
 
     def fetch(self) -> list[Record]:
-        start = (dt.date.today() - dt.timedelta(days=15)).isoformat()
+        start = (dt.date.today() - dt.timedelta(days=120)).isoformat()
         data = http.get(RRP_URL, params={"startDate": start}).json()
         ops = data.get("repo", {}).get("operations", [])
         ops = [o for o in ops if o.get("operationType") == "Reverse Repo" and o.get("totalAmtAccepted") is not None]
         if not ops:
             raise RuntimeError("no RRP operations returned")
-        latest = max(ops, key=lambda o: o["operationDate"])
+        ops.sort(key=lambda o: o["operationDate"])
+        latest = ops[-1]
         bn = float(latest["totalAmtAccepted"]) / 1e9
         ts = dt.datetime.fromisoformat(latest["operationDate"]).replace(tzinfo=dt.timezone.utc)
         return [
@@ -53,6 +54,8 @@ class NyFedRrp(Connector):
                 title=f"Fed overnight RRP — ${bn:,.0f}bn accepted",
                 url="https://www.newyorkfed.org/markets/desk-operations/reverse-repo",
                 metrics={"rrp_bn": bn},
+                series=[float(o["totalAmtAccepted"]) / 1e9 for o in ops[-90:]],
+                series_name="Fed RRP ($bn)",
             )
         ]
 
@@ -86,12 +89,13 @@ class TreasuryTga(Connector):
     report_new = False
 
     def fetch(self) -> list[Record]:
-        params = {"sort": "-record_date", "page[size]": 4}
+        params = {"sort": "-record_date", "page[size]": 200}
         data = http.get(TGA_URL, params=params).json()
         rows = [r for r in data.get("data", []) if "Opening Balance" in r.get("account_type", "")]
         if not rows:
             raise RuntimeError("no TGA opening-balance rows returned")
-        latest = rows[0]
+        rows.sort(key=lambda r: r["record_date"])
+        latest = rows[-1]
         bn = float(latest["open_today_bal"]) / 1000.0  # reported in $mn
         ts = dt.datetime.fromisoformat(latest["record_date"]).replace(tzinfo=dt.timezone.utc)
         return [
@@ -103,6 +107,8 @@ class TreasuryTga(Connector):
                 title=f"Treasury General Account — ${bn:,.0f}bn",
                 url="https://fiscaldata.treasury.gov/datasets/daily-treasury-statement/",
                 metrics={"tga_bn": bn},
+                series=[float(r["open_today_bal"]) / 1000.0 for r in rows[-90:]],
+                series_name="Treasury TGA ($bn)",
             )
         ]
 
