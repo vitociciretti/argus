@@ -49,6 +49,7 @@ def cmd_fetch(args: argparse.Namespace, cfg: dict) -> int:
 def cmd_scan(args: argparse.Namespace, cfg: dict) -> int:
     state = StateStore(args.state)
     names = args.sources or sorted(CONNECTORS)
+    names = [n for n in names if n not in getattr(args, "exclude", [])]
     results, failures, skipped = _run_scans(names, cfg, state)
     total = 0
     for r in results:
@@ -103,6 +104,8 @@ def main(argv: list[str] | None = None) -> int:
     p_scan = sub.add_parser("scan", help="scan sources and print deltas since last run")
     p_scan.add_argument("sources", nargs="*", metavar="source")
     p_scan.add_argument("--state", default="data/state.db")
+    p_scan.add_argument("--exclude", action="append", default=[], metavar="source",
+                        help="skip a source (repeatable); for CI where an IP is rate-limited")
 
     p_report = sub.add_parser("report", help="scan and render the daily markdown report")
     p_report.add_argument("sources", nargs="*", metavar="source")

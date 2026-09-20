@@ -19,4 +19,7 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest -q
       - name: fetch every connector against fresh state
-        run: argus scan --state /tmp/health-state.db
+        run: argus scan --state /tmp/health-state.db --exclude gdelt
+      - name: gdelt (GDELT rate-limits shared CI IPs — informational only)
+        continue-on-error: true
+        run: argus scan gdelt --state /tmp/health-state.db
