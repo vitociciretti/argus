@@ -12,6 +12,19 @@ DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 DEFAULT_QUERY = '("export controls" OR "new sanctions" OR "tariffs on") sourcelang:english'
 
 
+def build_query(cfg: dict) -> str:
+    """Explicit query wins; else derive one from the shared watchlist
+    (countries/commodities/terms — tickers are useless as news queries)."""
+    if cfg.get("query"):
+        return cfg["query"]
+    wl = cfg.get("watchlist", {})
+    terms = [t for key in ("countries", "commodities", "terms") for t in wl.get(key, [])]
+    if terms:
+        joined = " OR ".join(f'"{t}"' if " " in t else t for t in terms)
+        return f"({joined}) sourcelang:english"
+    return DEFAULT_QUERY
+
+
 def parse_articles(payload: dict) -> list[Record]:
     records = []
     for a in payload.get("articles", []):
@@ -45,14 +58,21 @@ class Gdelt(Connector):
 
     def fetch(self) -> list[Record]:
         params = {
-            "query": self.cfg.get("query", DEFAULT_QUERY),
+            "query": build_query(self.cfg),
             "mode": "artlist",
             "format": "json",
             "maxrecords": str(int(self.cfg.get("max_records", 40))),
             "timespan": self.cfg.get("timespan", "1d"),
             "sort": "datedesc",
         }
-        resp = http.get(DOC_URL, params=params, min_interval=5.0)
+        try:
+            resp = http.get(DOC_URL, params=params, min_interval=6.0, retries=False)
+        except Exception as exc:
+            if "429" in str(exc):
+                raise RuntimeError(
+                    "GDELT rate limit (429): penalty window active, next scan should succeed"
+                ) from exc
+            raise
         try:
             payload = resp.json()
         except ValueError:

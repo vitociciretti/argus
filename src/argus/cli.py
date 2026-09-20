@@ -1,12 +1,28 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
+import pathlib
 import sys
 
 from . import config as config_mod
-from .core.base import records_to_df
+from . import report as report_mod
+from .core.base import ScanResult, records_to_df
 from .core.state import StateStore
 from .registry import CONNECTORS, make
+
+
+def _run_scans(
+    names: list[str], cfg: dict, state: StateStore
+) -> tuple[list[ScanResult], list[tuple[str, Exception]]]:
+    results: list[ScanResult] = []
+    failures: list[tuple[str, Exception]] = []
+    for name in names:
+        try:
+            results.append(make(name, cfg).scan(state))
+        except Exception as exc:  # a broken source must not kill the run
+            failures.append((name, exc))
+    return results, failures
 
 
 def cmd_list(args: argparse.Namespace, cfg: dict) -> int:
@@ -29,24 +45,35 @@ def cmd_fetch(args: argparse.Namespace, cfg: dict) -> int:
 def cmd_scan(args: argparse.Namespace, cfg: dict) -> int:
     state = StateStore(args.state)
     names = args.sources or sorted(CONNECTORS)
+    results, failures = _run_scans(names, cfg, state)
     total = 0
-    failures: list[tuple[str, Exception]] = []
-    for name in names:
-        seeded_before = state.is_seeded(name)
-        try:
-            findings = make(name, cfg).scan(state)
-        except Exception as exc:  # a broken source must not kill the scan
-            failures.append((name, exc))
-            continue
-        note = "" if seeded_before else " (first run: baseline seeded)"
-        print(f"\n## {name} - {len(findings)} finding(s){note}")
-        for f in sorted(findings, key=lambda f: -f.importance):
+    for r in results:
+        note = " (first run: baseline seeded)" if r.first_run else ""
+        print(f"\n## {r.source} - {len(r.findings)} finding(s){note}")
+        for f in sorted(r.findings, key=lambda f: -f.importance):
             print(f"- [{f.importance}] {f.record.title}")
             print(f"      {f.reason} | {f.record.url}")
-        total += len(findings)
-    print(f"\n=> {total} finding(s) across {len(names) - len(failures)} source(s)")
+        total += len(r.findings)
+    print(f"\n=> {total} finding(s) across {len(results)} source(s)")
     for name, exc in failures:
         print(f"!! {name} failed: {exc}", file=sys.stderr)
+    return 1 if failures else 0
+
+
+def cmd_report(args: argparse.Namespace, cfg: dict) -> int:
+    state = StateStore(args.state)
+    names = args.sources or sorted(CONNECTORS)
+    results, failures = _run_scans(names, cfg, state)
+    report_mod.apply_watchlist(results, report_mod.watchlist_terms(cfg))
+    date_str = dt.date.today().isoformat()
+    text = report_mod.render(results, failures, date_str)
+    print(text)
+    if not args.no_write:
+        out_dir = pathlib.Path(args.out)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = out_dir / f"{date_str}.md"
+        path.write_text(text)
+        print(f"[written to {path}]", file=sys.stderr)
     return 1 if failures else 0
 
 
@@ -65,9 +92,17 @@ def main(argv: list[str] | None = None) -> int:
     p_scan.add_argument("sources", nargs="*", metavar="source")
     p_scan.add_argument("--state", default="data/state.db")
 
+    p_report = sub.add_parser("report", help="scan and render the daily markdown report")
+    p_report.add_argument("sources", nargs="*", metavar="source")
+    p_report.add_argument("--state", default="data/state.db")
+    p_report.add_argument("--out", default="data/reports", help="report output directory")
+    p_report.add_argument("--no-write", action="store_true", help="print only, don't write file")
+
     args = parser.parse_args(argv)
     cfg = config_mod.load(args.config)
-    handler = {"list": cmd_list, "fetch": cmd_fetch, "scan": cmd_scan}[args.command]
+    handler = {"list": cmd_list, "fetch": cmd_fetch, "scan": cmd_scan, "report": cmd_report}[
+        args.command
+    ]
     return handler(args, cfg)
 
 

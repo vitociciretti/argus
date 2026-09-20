@@ -14,34 +14,42 @@ from urllib3.util.retry import Retry
 
 USER_AGENT = "argus-osint/0.1 (+https://github.com/vitociciretti/argus)"
 
-_session: requests.Session | None = None
+_sessions: dict[bool, requests.Session] = {}
 _last_hit: dict[str, float] = {}
 
 
-def session() -> requests.Session:
-    global _session
-    if _session is None:
+def session(retries: bool = True) -> requests.Session:
+    if retries not in _sessions:
         s = requests.Session()
         s.headers["User-Agent"] = USER_AGENT
-        # GDELT-style sources allow ~1 request/5s: backoff must clear that window
-        retry = Retry(
-            total=3,
-            backoff_factor=3.0,
-            status_forcelist=(429, 500, 502, 503, 504),
-            allowed_methods=("GET",),
-        )
-        s.mount("https://", HTTPAdapter(max_retries=retry))
-        s.mount("http://", HTTPAdapter(max_retries=retry))
-        _session = s
-    return _session
+        if retries:
+            retry = Retry(
+                total=3,
+                backoff_factor=3.0,
+                status_forcelist=(429, 500, 502, 503, 504),
+                allowed_methods=("GET",),
+            )
+            s.mount("https://", HTTPAdapter(max_retries=retry))
+            s.mount("http://", HTTPAdapter(max_retries=retry))
+        _sessions[retries] = s
+    return _sessions[retries]
 
 
-def get(url: str, params=None, min_interval: float = 1.0, timeout: float = 60.0) -> requests.Response:
+def get(
+    url: str,
+    params=None,
+    min_interval: float = 1.0,
+    timeout: float = 60.0,
+    retries: bool = True,
+) -> requests.Response:
+    """retries=False is for sources (GDELT) whose rate limiter counts each
+    retry as a fresh violation and extends the penalty window — there,
+    failing fast and succeeding on the next scheduled scan beats digging in."""
     host = urlparse(url).netloc
     wait = _last_hit.get(host, 0.0) + min_interval - time.monotonic()
     if wait > 0:
         time.sleep(wait)
-    resp = session().get(url, params=params, timeout=timeout)
+    resp = session(retries).get(url, params=params, timeout=timeout)
     _last_hit[host] = time.monotonic()
     resp.raise_for_status()
     return resp

@@ -39,6 +39,16 @@ class Finding:
     record: Record
     reason: str
     importance: int = 2  # 1 = background noise .. 5 = drop everything
+    watchlist: list[str] = dataclasses.field(default_factory=list)  # matched terms
+
+
+@dataclasses.dataclass
+class ScanResult:
+    source: str
+    category: str
+    findings: list[Finding]
+    n_records: int   # 0 records from a live source is a health warning, not quiet
+    first_run: bool
 
 
 def records_to_df(records: list[Record]) -> pd.DataFrame:
@@ -72,7 +82,7 @@ class Connector(abc.ABC):
     def fetch(self) -> list[Record]:
         ...
 
-    def scan(self, state: StateStore) -> list[Finding]:
+    def scan(self, state: StateStore) -> ScanResult:
         records = self.fetch()
         first_run = not state.is_seeded(self.name)
         known = state.known_uids(self.name)
@@ -85,7 +95,7 @@ class Connector(abc.ABC):
 
         state.add_seen(records)
         state.mark_seeded(self.name)
-        return findings
+        return ScanResult(self.name, self.category, findings, len(records), first_run)
 
     def finding_for_new(self, record: Record) -> Finding:
         return Finding(record, "new", self.new_importance)

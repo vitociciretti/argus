@@ -14,4 +14,7 @@ CONNECTORS: dict[str, type[Connector]] = {
 def make(name: str, config: dict) -> Connector:
     if name not in CONNECTORS:
         raise KeyError(f"unknown connector {name!r}; available: {', '.join(sorted(CONNECTORS))}")
-    return CONNECTORS[name](config.get(name, {}))
+    cfg = dict(config.get(name, {}))
+    # the shared watchlist rides along so connectors can shape their queries
+    cfg.setdefault("watchlist", config.get("watchlist", {}))
+    return CONNECTORS[name](cfg)

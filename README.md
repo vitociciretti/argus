@@ -38,10 +38,27 @@ argus list                 # available connectors
 argus fetch polymarket     # print one source's current snapshot
 argus scan                 # all sources; prints deltas since last scan
 argus scan ofac_sdn        # just one source
+argus report               # daily markdown digest -> data/reports/YYYY-MM-DD.md
 ```
 
 State lives in `data/state.db` (override with `--state`). Per-connector
 configuration in `argus.toml` — see the annotated example in this repo.
+
+## The daily report
+
+`argus report` scans every source and renders a markdown digest built on three
+rules:
+
+1. **Deltas, not levels** — only what changed since the last scan appears.
+2. **Watchlist first** — findings matching `[watchlist]` terms in `argus.toml`
+   (tickers, countries, commodities, free text) are tagged, bumped +1
+   importance, and pulled into a top section. GDELT derives its news query
+   from the watchlist when no explicit query is configured.
+3. **Honest when quiet** — silent sources print one line, and a source-health
+   footer distinguishes "no changes" from "returned 0 records" from "failed".
+
+Run it once a day from cron; the state store makes each run report exactly the
+gap since the previous one.
 
 ## Connectors
 
@@ -81,8 +98,8 @@ Rules of the house:
 
 - [x] Core: Record/Finding, delta state store, polite HTTP, CLI
 - [x] Example connectors: polymarket, federal_register, ofac_sdn, gdelt
-- [ ] Daily digest report (markdown/telegram) driven by `scan`
-- [ ] Watchlist support (tickers, countries, commodities) filtering findings
+- [x] Daily digest report (`argus report`) with watchlist boosting
+- [ ] Telegram/MP3 delivery of the daily report
 - [ ] Full connector build-out: WARN notices, CourtListener, Kalshi, GPR/EPU,
       IMF PortWatch, ACLED, AGSI gas storage, ENTSO-E, USAspending,
       ClinicalTrials/FDA, certificate transparency, ADS-B

@@ -1,12 +1,22 @@
 # Per-connector configuration. Section name == connector name.
 
+# Shared watchlist: findings whose title/entities match any term get tagged,
+# pulled into the report's "Watchlist hits" section, and bumped +1 importance.
+# GDELT builds its news query from countries/commodities/terms when no
+# explicit query is set below.
+[watchlist]
+tickers = []
+countries = ["Iran", "Russia", "Taiwan", "China"]
+commodities = ["crude oil", "natural gas", "uranium"]
+terms = ["export controls", "sanctions", "tariffs", "Strait of Hormuz"]
+
 [polymarket]
 move_threshold = 0.05   # flag probability moves >= 5pp between scans
 min_volume_24h = 10000  # ignore thin markets
 limit = 100             # top markets by 24h volume
 
 [gdelt]
-query = '("export controls" OR "new sanctions" OR "tariffs on") sourcelang:english'
+# query = '("export controls" OR "new sanctions") sourcelang:english'  # overrides watchlist
 timespan = "1d"
 max_records = 40
 

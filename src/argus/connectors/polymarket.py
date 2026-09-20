@@ -13,11 +13,13 @@ from ..core.base import Connector, Finding, Record, utcnow
 
 GAMMA_URL = "https://gamma-api.polymarket.com/markets"
 
-# Top-by-volume is dominated by live sports/esports; their slugs are prefixed
-# with the league. Heuristic, overridable via cfg["exclude_slug_pattern"].
+# Top-by-volume is dominated by live sports/esports: league-prefixed slugs,
+# plus daily fixtures which always embed the match date (political/macro
+# markets don't). Heuristic, overridable via cfg["exclude_slug_pattern"].
 SPORTS_SLUG = re.compile(
-    r"^(nfl|nba|mlb|nhl|mls|cfb|cbb|epl|lal|ser|bun|lig|ucl|uel|atp|wta|"
+    r"^(nfl|nba|mlb|nhl|mls|cfb|cbb|epl|fl1|lal|ser|bun|lig|ucl|uel|atp|wta|"
     r"dota2|cs2|lol|val|f1|ufc|box|nascar)-"
+    r"|-\d{4}-\d{2}-\d{2}(-|$)"
 )
 
 

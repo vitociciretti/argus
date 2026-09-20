@@ -26,20 +26,23 @@ class Fake(Connector):
 
 def test_first_run_seeds_quietly(tmp_path):
     state = StateStore(tmp_path / "s.db")
-    findings = Fake([rec("a", "fake"), rec("b", "fake")]).scan(state)
-    assert findings == []
+    result = Fake([rec("a", "fake"), rec("b", "fake")]).scan(state)
+    assert result.findings == []
+    assert result.first_run
+    assert result.n_records == 2
     assert state.is_seeded("fake")
 
 
 def test_second_run_reports_only_new(tmp_path):
     state = StateStore(tmp_path / "s.db")
     Fake([rec("a", "fake")]).scan(state)
-    findings = Fake([rec("a", "fake"), rec("b", "fake")]).scan(state)
-    assert len(findings) == 1
-    assert findings[0].record.uid == "b"
-    assert findings[0].reason == "new"
+    result = Fake([rec("a", "fake"), rec("b", "fake")]).scan(state)
+    assert not result.first_run
+    assert len(result.findings) == 1
+    assert result.findings[0].record.uid == "b"
+    assert result.findings[0].reason == "new"
     # third run, nothing new
-    assert Fake([rec("a", "fake"), rec("b", "fake")]).scan(state) == []
+    assert Fake([rec("a", "fake"), rec("b", "fake")]).scan(state).findings == []
 
 
 def market(uid: str, prob: float, vol: float = 50_000) -> Record:
