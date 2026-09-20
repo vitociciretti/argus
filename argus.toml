@@ -1,0 +1,16 @@
+# Per-connector configuration. Section name == connector name.
+
+[polymarket]
+move_threshold = 0.05   # flag probability moves >= 5pp between scans
+min_volume_24h = 10000  # ignore thin markets
+limit = 100             # top markets by 24h volume
+
+[gdelt]
+query = '("export controls" OR "new sanctions" OR "tariffs on") sourcelang:english'
+timespan = "1d"
+max_records = 40
+
+[federal_register]
+# defaults: SEC, CFTC, Treasury, Fed, OFAC — rules and proposed rules only
+# agencies = ["securities-and-exchange-commission"]
+# types = ["RULE", "PRORULE"]
