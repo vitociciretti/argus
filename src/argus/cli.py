@@ -6,6 +6,7 @@ import pathlib
 import sys
 
 from . import config as config_mod
+from . import html_report as html_mod
 from . import report as report_mod
 from .core.base import ScanResult, records_to_df
 from .core.state import StateStore
@@ -71,9 +72,15 @@ def cmd_report(args: argparse.Namespace, cfg: dict) -> int:
     if not args.no_write:
         out_dir = pathlib.Path(args.out)
         out_dir.mkdir(parents=True, exist_ok=True)
-        path = out_dir / f"{date_str}.md"
-        path.write_text(text)
-        print(f"[written to {path}]", file=sys.stderr)
+        md_path = out_dir / f"{date_str}.md"
+        md_path.write_text(text)
+        html_path = out_dir / f"{date_str}.html"
+        html_path.write_text(html_mod.render_html(results, failures, date_str))
+        print(f"[written to {md_path} and {html_path}]", file=sys.stderr)
+        if args.open:
+            import webbrowser
+
+            webbrowser.open(html_path.resolve().as_uri())
     return 1 if failures else 0
 
 
@@ -97,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     p_report.add_argument("--state", default="data/state.db")
     p_report.add_argument("--out", default="data/reports", help="report output directory")
     p_report.add_argument("--no-write", action="store_true", help="print only, don't write file")
+    p_report.add_argument("--open", action="store_true", help="open the HTML report in the browser")
 
     args = parser.parse_args(argv)
     cfg = config_mod.load(args.config)

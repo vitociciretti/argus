@@ -46,8 +46,12 @@ configuration in `argus.toml` — see the annotated example in this repo.
 
 ## The daily report
 
-`argus report` scans every source and renders a markdown digest built on three
-rules:
+`argus report` scans every source and writes two artifacts: a markdown digest
+(for cron logs, pipes, Telegram later) and a **self-contained HTML briefing**
+(`data/reports/YYYY-MM-DD.html` — dark risk-terminal design, watchlist cards,
+probability-move bars, LED source health; zero JS, opens anywhere). Add
+`--open` to pop it in the browser. Preview the full design with synthetic data:
+`python scripts/demo_report.py`. Both formats follow three rules:
 
 1. **Deltas, not levels** — only what changed since the last scan appears.
 2. **Watchlist first** — findings matching `[watchlist]` terms in `argus.toml`

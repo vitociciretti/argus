@@ -87,6 +87,7 @@ class Polymarket(Connector):
                         r,
                         f"probability {prev:.0%} -> {prob:.0%} ({delta * 100:+.0f}pp)",
                         importance=4 if abs(delta) >= 0.10 else 3,
+                        extra={"from": prev, "to": prob},
                     )
                 )
         return findings

@@ -43,8 +43,11 @@ def _bullet(f: Finding) -> str:
     return f"- **[{f.importance}]** {f.record.title}{tag}\n  {f.reason}{link}"
 
 
-def _sorted(findings: list[Finding]) -> list[Finding]:
+def sort_findings(findings: list[Finding]) -> list[Finding]:
     return sorted(findings, key=lambda f: (-f.importance, -f.record.ts.timestamp()))
+
+
+_sorted = sort_findings
 
 
 def render(

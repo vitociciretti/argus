@@ -40,6 +40,7 @@ class Finding:
     reason: str
     importance: int = 2  # 1 = background noise .. 5 = drop everything
     watchlist: list[str] = dataclasses.field(default_factory=list)  # matched terms
+    extra: dict[str, Any] = dataclasses.field(default_factory=dict)  # renderer hints, e.g. {"from": .44, "to": .26}
 
 
 @dataclasses.dataclass
