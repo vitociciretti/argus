@@ -41,15 +41,17 @@ def get(
     min_interval: float = 1.0,
     timeout: float = 60.0,
     retries: bool = True,
+    headers: dict | None = None,
 ) -> requests.Response:
     """retries=False is for sources (GDELT) whose rate limiter counts each
     retry as a fresh violation and extends the penalty window — there,
-    failing fast and succeeding on the next scheduled scan beats digging in."""
+    failing fast and succeeding on the next scheduled scan beats digging in.
+    headers is for sources with UA requirements (SEC wants a contact email)."""
     host = urlparse(url).netloc
     wait = _last_hit.get(host, 0.0) + min_interval - time.monotonic()
     if wait > 0:
         time.sleep(wait)
-    resp = session(retries).get(url, params=params, timeout=timeout)
+    resp = session(retries).get(url, params=params, timeout=timeout, headers=headers)
     _last_hit[host] = time.monotonic()
     resp.raise_for_status()
     return resp

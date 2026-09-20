@@ -11,7 +11,7 @@ import datetime as dt
 import re
 
 from ..core import http
-from ..core.base import Connector, Finding, Record
+from ..core.base import ConfigSkip, Connector, Finding, Record
 
 IDX_URL = "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{q}/form.{ymd}.idx"
 LINE_RE = re.compile(r"^(?P<form>.{1,18}?)\s{2,}(?P<company>.+?)\s{2,}(?P<cik>\d+)\s+(?P<date>\d{8})\s+(?P<file>\S+)\s*$")
@@ -55,22 +55,32 @@ class EdgarOwnership(Connector):
 
     def fetch(self) -> list[Record]:
         form4_companies = self.cfg.get("form4_companies", [])
+        # SEC fair-access policy: UA must carry a contact email or SEC 403s
+        contact = self.cfg.get("contact", "")
+        if "@" not in contact:
+            raise ConfigSkip(
+                'set [edgar_ownership] contact = "your-tool your@email" in argus.local.toml'
+            )
+        headers = {"User-Agent": contact}
         records: dict[str, Record] = {}
         found_days = 0
+        errors = []
         day = dt.date.today()
         for _ in range(8):  # walk back over weekends/holidays
             url = IDX_URL.format(year=day.year, q=(day.month - 1) // 3 + 1, ymd=day.strftime("%Y%m%d"))
             try:
-                text = http.get(url, min_interval=0.5).text
-            except Exception:
-                day -= dt.timedelta(days=1)
-                continue
-            for r in parse_idx(text, form4_companies):
-                records[r.uid] = r
-            found_days += 1
-            if found_days >= int(self.cfg.get("days", 2)):
-                break
+                text = http.get(url, min_interval=0.5, headers=headers).text
+            except Exception as exc:
+                errors.append(exc)
+            else:
+                for r in parse_idx(text, form4_companies):
+                    records[r.uid] = r
+                found_days += 1
+                if found_days >= int(self.cfg.get("days", 2)):
+                    break
             day -= dt.timedelta(days=1)
+        if not records and errors:
+            raise RuntimeError(f"no daily index reachable; last error: {errors[-1]}")
         return list(records.values())
 
     def finding_for_new(self, record: Record) -> Finding:

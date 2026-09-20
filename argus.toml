@@ -60,6 +60,7 @@ queries = ['"securities fraud"']
 
 [edgar_ownership]
 days = 2                  # how many recent business days of the daily index
+# contact = "your-tool you@email.com"   # REQUIRED (SEC fair-access) — set in argus.local.toml
 # form4_companies = ["Tesla", "NVIDIA"]   # Form 4s only for named companies
 
 [fca_shorts]
