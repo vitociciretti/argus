@@ -96,13 +96,79 @@ def week_delta(series: list[float]) -> float | None:
     return series[-1] / base - 1
 
 
+def pulse_stat(series: list[float]) -> tuple[float | None, float | None, float | None]:
+    """Reference frame for a pulse gauge: (z-score of the last point vs the series
+    mean/std, its percentile within the series, weekly change). A level with no
+    reference is unreadable — '220' means nothing until you know it is +1.8σ."""
+    if len(series) < 3:
+        return None, None, week_delta(series)
+    n = len(series)
+    mean = sum(series) / n
+    var = sum((v - mean) ** 2 for v in series) / n
+    std = var**0.5
+    last = series[-1]
+    z = (last - mean) / std if std > 0 else 0.0
+    pct = sum(1 for v in series if v <= last) / n
+    return z, pct, week_delta(series)
+
+
 def pulse_lines(results: list[ScanResult]) -> list[str]:
     lines = []
     for result in results:
         for r in result.pulse:
-            delta = week_delta(r.series)
-            delta_s = f" ({delta:+.0%} wk)" if delta is not None else ""
-            lines.append(f"- {r.series_name}: {r.series[-1]:,.0f} `{spark(r.series)}`{delta_s}")
+            z, _pct, delta = pulse_stat(r.series)
+            parts = []
+            if z is not None:
+                parts.append(f"{z:+.1f}σ")
+            if delta is not None:
+                parts.append(f"{delta:+.0%} wk")
+            tail = f" ({', '.join(parts)})" if parts else ""
+            lines.append(f"- {r.series_name}: {r.series[-1]:,.0f} `{spark(r.series)}`{tail}")
+    return lines
+
+
+def _briefing_lines(briefing, top: list[Finding] | None) -> list[str]:
+    """Lead section. The LLM briefing when present; otherwise a deterministic
+    'Top signals' pulled from the computed relevance ranking, so the report always
+    opens with what matters rather than the first category alphabetically."""
+    lines: list[str] = []
+    if briefing is not None:
+        lines.append("## Executive briefing")
+        if briefing.headline:
+            lines.append(f"**{briefing.headline}**")
+            lines.append("")
+        if briefing.narrative:
+            lines.append(briefing.narrative)
+            lines.append("")
+        for s in briefing.signals:
+            cats = f" _{', '.join(s.categories)}_" if s.categories else ""
+            lines.append(f"- **[{s.importance}]** {s.title} — {s.why}{cats}")
+        lines.append(f"\n_briefing by {briefing.model}_")
+        lines.append("")
+    elif top:
+        lines.append("## Top signals today")
+        for f in top:
+            why = f.extra.get("why") or []
+            why_s = f" _({'; '.join(why)})_" if why else ""
+            link = f" — [link]({f.record.url})" if f.record.url else ""
+            lines.append(
+                f"- **[{f.importance}]** ({f.record.category}) {f.record.title} — "
+                f"{f.reason}{why_s}{link}"
+            )
+        lines.append("")
+    return lines
+
+
+def _confluence_lines(clusters: list | None) -> list[str]:
+    if not clusters:
+        return []
+    lines = ["## Cross-source confluence"]
+    for c in clusters:
+        n = len(c.findings)
+        lines.append(
+            f"- **{c.display}** — {', '.join(c.categories)} ({n} item{'s' if n != 1 else ''})"
+        )
+    lines.append("")
     return lines
 
 
@@ -111,6 +177,10 @@ def render(
     failures: list[tuple[str, Exception]],
     date_str: str,
     skipped: list[tuple[str, str]] | None = None,
+    *,
+    briefing=None,
+    top: list[Finding] | None = None,
+    clusters: list | None = None,
 ) -> str:
     skipped = skipped or []
     all_findings = [f for r in results for f in r.findings]
@@ -123,6 +193,9 @@ def render(
         f"{len(watch_hits)} watchlist hits · {len(failures)} failures_",
         "",
     ]
+
+    lines.extend(_briefing_lines(briefing, top))
+    lines.extend(_confluence_lines(clusters))
 
     if watch_hits:
         lines.append("## Watchlist hits")

@@ -7,7 +7,9 @@ import sys
 
 from . import config as config_mod
 from . import html_report as html_mod
+from . import relevance as relevance_mod
 from . import report as report_mod
+from . import synthesis as synthesis_mod
 from .core.base import ConfigSkip, ScanResult, records_to_df
 from .core.state import StateStore
 from .registry import CONNECTORS, make
@@ -72,8 +74,12 @@ def cmd_report(args: argparse.Namespace, cfg: dict) -> int:
     names = args.sources or sorted(CONNECTORS)
     results, failures, skipped = _run_scans(names, cfg, state)
     report_mod.apply_watchlist(results, report_mod.watchlist_terms(cfg))
+    clusters = relevance_mod.apply(results, cfg)  # scores + boosts findings in place
+    top = relevance_mod.top_signals(results, int(cfg.get("relevance", {}).get("top_n", 8)))
+    briefing = None if args.no_llm else synthesis_mod.generate(results, top, clusters, cfg)
     date_str = dt.date.today().isoformat()
-    text = report_mod.render(results, failures, date_str, skipped)
+    kw = {"briefing": briefing, "top": top, "clusters": clusters}
+    text = report_mod.render(results, failures, date_str, skipped, **kw)
     print(text)
     if not args.no_write:
         out_dir = pathlib.Path(args.out)
@@ -81,7 +87,7 @@ def cmd_report(args: argparse.Namespace, cfg: dict) -> int:
         md_path = out_dir / f"{date_str}.md"
         md_path.write_text(text)
         html_path = out_dir / f"{date_str}.html"
-        html_path.write_text(html_mod.render_html(results, failures, date_str, skipped))
+        html_path.write_text(html_mod.render_html(results, failures, date_str, skipped, **kw))
         print(f"[written to {md_path} and {html_path}]", file=sys.stderr)
         if args.open:
             import webbrowser
@@ -112,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     p_report.add_argument("--state", default="data/state.db")
     p_report.add_argument("--out", default="data/reports", help="report output directory")
     p_report.add_argument("--no-write", action="store_true", help="print only, don't write file")
+    p_report.add_argument("--no-llm", action="store_true",
+                          help="skip the LLM briefing even if [llm] enabled (deterministic top-signals only)")
     p_report.add_argument("--open", action="store_true", help="open the HTML report in the browser")
 
     args = parser.parse_args(argv)
