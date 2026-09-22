@@ -11,7 +11,7 @@ import datetime as dt
 import html as html_mod
 
 from .core.base import Finding, Record, ScanResult
-from .report import CATEGORY_ORDER, LOW_IMPORTANCE_CAP, sort_findings, week_delta
+from .report import CATEGORY_ORDER, LOW_IMPORTANCE_CAP, pulse_stat, sort_findings
 
 IMPORTANCE_COLORS = {5: "#f43f5e", 4: "#fb923c", 3: "#fbbf24", 2: "#38bdf8", 1: "#64748b"}
 CATEGORY_ICONS = {
@@ -143,6 +143,28 @@ h2::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(148
 .msg.dim{color:#475569}
 footer{margin-top:52px;text-align:center;color:#475569;font-size:11.5px;
  font-family:'JetBrains Mono',monospace;letter-spacing:.08em}
+.brief{margin-top:26px;padding:22px 24px;border-radius:17px;
+ border:1px solid rgba(34,211,238,.28);
+ background:linear-gradient(180deg,rgba(34,211,238,.09),rgba(34,211,238,.02));
+ animation:rise .55s ease both}
+.brief .kicker{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:#22d3ee;margin-bottom:9px}
+.brief .head{font-size:20px;font-weight:800;color:#f8fafc;line-height:1.3;margin-bottom:10px}
+.brief .narr{font-size:14.5px;line-height:1.6;color:#cbd5e1;margin-bottom:15px}
+.brief .sigs{display:flex;flex-direction:column;gap:9px}
+.brief .sig{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;border-radius:11px;
+ background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-left:3px solid var(--imp)}
+.brief .sig .st{font-size:14px;font-weight:600;color:#e2e8f0}
+.brief .sig .sw{font-family:'JetBrains Mono',monospace;font-size:12px;color:#94a3b8;margin-top:3px}
+.brief .sig .cats{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.06em;
+ text-transform:uppercase;color:#475569;margin-top:5px}
+.brief .by{margin-top:13px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#475569;letter-spacing:.1em}
+.conf{display:flex;flex-direction:column;gap:10px}
+.ccard{display:flex;gap:13px;align-items:center;padding:13px 16px;border-radius:12px;
+ background:linear-gradient(90deg,rgba(251,191,36,.08),rgba(251,191,36,.02));
+ border:1px solid rgba(251,191,36,.3);animation:rise .55s ease both}
+.ccard .cn{font-size:14.5px;font-weight:600;color:#f1f5f9}
+.ccard .cc{font-family:'JetBrains Mono',monospace;font-size:11px;color:#fbbf24;margin-left:auto;
+ letter-spacing:.06em;text-transform:uppercase;text-align:right}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}.date{text-align:left}}
@@ -236,16 +258,18 @@ def svg_sparkline(series: list[float], width: int = 220, height: int = 44) -> st
 
 
 def _pulse_card(r: Record, i: int) -> str:
-    delta = week_delta(r.series)
-    if delta is None:
-        chip = ""
-    else:
+    z, _pct, delta = pulse_stat(r.series)
+    chips = ""
+    if z is not None and abs(z) >= 0.05:
+        zcls = "up" if z >= 0 else "down"
+        chips += f'<span class="pchip {zcls}">{z:+.1f}&sigma;</span>'
+    if delta is not None:
         cls = "up" if delta >= 0 else "down"
-        chip = f'<span class="pchip {cls}">{delta:+.0%} wk</span>'
+        chips += f'<span class="pchip {cls}">{delta:+.0%} wk</span>'
     return (
         f'<div class="pcard" style="animation-delay:{min(i, 20) * 60}ms">'
         f'<div class="pname">{_esc(r.series_name)}</div>'
-        f'<div class="pval">{r.series[-1]:,.0f}{chip}</div>'
+        f'<div class="pval">{r.series[-1]:,.0f}{chips}</div>'
         f"{svg_sparkline(r.series)}</div>"
     )
 
@@ -326,11 +350,74 @@ def _health_section(
     )
 
 
+def _briefing_section(briefing, top: list[Finding] | None) -> str:
+    """The hero lead: the LLM briefing when present, else a deterministic
+    top-signals list from the relevance ranking."""
+    if briefing is not None:
+        sigs = ""
+        for s in briefing.signals:
+            color = IMPORTANCE_COLORS.get(s.importance, "#64748b")
+            cats = f'<div class="cats">{_esc(", ".join(s.categories))}</div>' if s.categories else ""
+            sigs += (
+                f'<div class="sig" style="--imp:{color}"><span class="badge">{s.importance}</span>'
+                f'<div><div class="st">{_esc(s.title)}</div>'
+                f'<div class="sw">{_esc(s.why)}</div>{cats}</div></div>'
+            )
+        head = f'<div class="head">{_esc(briefing.headline)}</div>' if briefing.headline else ""
+        narr = f'<div class="narr">{_esc(briefing.narrative)}</div>' if briefing.narrative else ""
+        sigs_block = f'<div class="sigs">{sigs}</div>' if sigs else ""
+        return (
+            f'<div class="brief"><div class="kicker">&#9889; executive briefing</div>'
+            f'{head}{narr}{sigs_block}'
+            f'<div class="by">briefing by {_esc(briefing.model)}</div></div>'
+        )
+    if top:
+        sigs = ""
+        for f in top:
+            color = _imp_color(f)
+            why = f.extra.get("why") or []
+            why_s = "; ".join(why) or f.reason
+            link = _esc(f.record.title)
+            if f.record.url:
+                link = f'<a href="{_esc(f.record.url)}" style="color:inherit;text-decoration:none">{link}</a>'
+            sigs += (
+                f'<div class="sig" style="--imp:{color}"><span class="badge">{f.importance}</span>'
+                f'<div><div class="st">{link}</div>'
+                f'<div class="sw">{_esc(why_s)}</div>'
+                f'<div class="cats">{_esc(f.record.category)}</div></div></div>'
+            )
+        return (
+            f'<div class="brief"><div class="kicker">&#9889; top signals today</div>'
+            f'<div class="sigs">{sigs}</div></div>'
+        )
+    return ""
+
+
+def _confluence_section(clusters: list | None) -> str:
+    if not clusters:
+        return ""
+    cards = ""
+    for c in clusters:
+        n = len(c.findings)
+        cards += (
+            f'<div class="ccard"><span class="cn">{_esc(c.display)}</span>'
+            f'<span class="cc">{_esc(" &middot; ".join(c.categories))}<br>{n} item{"s" if n != 1 else ""}</span></div>'
+        )
+    return (
+        '<section><h2><span class="icon">&#128279;</span>cross-source confluence'
+        f'<span class="count">{len(clusters)}</span></h2><div class="conf">{cards}</div></section>'
+    )
+
+
 def render_html(
     results: list[ScanResult],
     failures: list[tuple[str, Exception]],
     date_iso: str,
     skipped: list[tuple[str, str]] | None = None,
+    *,
+    briefing=None,
+    top: list[Finding] | None = None,
+    clusters: list | None = None,
 ) -> str:
     skipped = skipped or []
     date = dt.date.fromisoformat(date_iso)
@@ -381,7 +468,9 @@ def render_html(
 </header>
 <div class="stats">{stats}</div>
 {banner}
+{_briefing_section(briefing, top)}
 {watch_section}
+{_confluence_section(clusters)}
 {_pulse_section(results)}
 {categories}
 {_health_section(results, failures, skipped)}

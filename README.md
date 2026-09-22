@@ -64,6 +64,31 @@ probability-move bars, LED source health; zero JS, opens anywhere). Add
 Run it once a day from cron; the state store makes each run report exactly the
 gap since the previous one.
 
+### From catalog to briefing
+
+A flat delta feed buries the one thing that matters under fifty routine ones, so
+three layers rank and synthesize on top of the raw scan:
+
+1. **Computed relevance** (`relevance.py`, always on, no key). Each finding gets a
+   score *above* its static per-form importance from signals the connectors
+   already carry — a **known material actor** in the entities (an activist fund's
+   13D is not an unknown holder's), the **dollar/probability magnitude** in the
+   metrics, and **cross-source confluence**: the same entity in two or more
+   categories the same day (a layoff + a fraud docket + a 13D on one name is a
+   story). Material items are boosted and pulled into a **Top signals** lead
+   section; confluence gets its own section when the data earns it.
+2. **Reference-framed pulse.** Every gauge shows a **z-score** against its own
+   recent history, so a bare "EPU 220" reads as "220 (+2.6σ)".
+3. **Executive briefing** (`synthesis.py`, optional LLM, off by default). With
+   `[llm] enabled = true`, Claude reads the ranked deltas + confluence + pulse and
+   writes "what matters today and why" at the very top. It is fully graceful: no
+   SDK, no key, or any API error logs one line and falls back to the deterministic
+   Top-signals section — a broken model never breaks the briefing, the same rule
+   that keeps a broken connector from killing the run. Enable it with
+   `pip install -e ".[llm]"`, set `[llm] enabled = true` in `argus.toml`, and
+   provide a key via `ANTHROPIC_API_KEY`, `[llm] api_key` in `argus.local.toml`,
+   or `[llm] env_file` pointing at an existing `.env`.
+
 ## Connectors
 
 | name | category | signal |
@@ -130,7 +155,10 @@ Rules of the house:
 - [x] Daily digest report (`argus report`) with watchlist boosting
 - [x] Full keyless connector build-out (24 sources across 19 categories)
 - [x] Daily connector-health CI (GitHub Actions, runs every fetch on fresh state)
-- [ ] Telegram/MP3 delivery of the daily report
+- [x] Relevance ranking + cross-source confluence + reference-framed pulse
+- [x] Executive briefing: optional LLM synthesis layer (graceful, off by default)
+- [x] Telegram delivery of the daily report (cron -> HTML to Telegram)
+- [ ] MP3 read-aloud of the briefing
 - [ ] Key-gated connectors: ACLED, AGSI gas storage, ENTSO-E (free registration)
 - [ ] More WARN states (CA, NY, WA), NYSE threshold list, FDA warning letters,
       ADS-B, Reg SHO re-entry detection

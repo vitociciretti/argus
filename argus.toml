@@ -10,6 +10,26 @@ countries = ["Iran", "Russia", "Taiwan", "China"]
 commodities = ["crude oil", "natural gas", "uranium"]
 terms = ["export controls", "sanctions", "tariffs", "Strait of Hormuz"]
 
+# Relevance ranking (deterministic, always on). Scores each finding above its
+# static per-form importance using known material actors, dollar/probability
+# magnitude, and cross-source confluence — then boosts and ranks. See relevance.py.
+[relevance]
+top_n = 8                 # size of the "Top signals" lead section
+# extra_actors = ["your fund", "a name you track"]   # added to the built-in activist list
+
+# Optional LLM briefing. OFF by default — everything works without it. When on,
+# Claude reads the ranked deltas + confluence + pulse and writes "what matters
+# today and why" at the top of the report. Any failure falls back to the
+# deterministic Top-signals section (a broken model never breaks the briefing).
+[llm]
+enabled = false
+model = "claude-opus-5"
+effort = "medium"         # low | medium | high | xhigh | max
+max_tokens = 2000
+# Key resolution: ANTHROPIC_API_KEY env first, then api_key here (put it in
+# argus.local.toml, never commit it), then env_file (reuse another app's .env).
+# env_file = "~/apps/claude-telegram-bot/.env"
+
 [polymarket]
 move_threshold = 0.05   # flag probability moves >= 5pp between scans
 min_volume_24h = 10000  # ignore thin markets
