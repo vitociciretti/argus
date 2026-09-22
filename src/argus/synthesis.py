@@ -165,21 +165,32 @@ def generate(
     if not top and not clusters:
         return None  # nothing to brief on; the report's quiet-day lines suffice
 
-    api_key = _load_api_key(cfg)
-    if not api_key:
-        print("[synthesis] skipped — no ANTHROPIC_API_KEY (set it, or [llm] api_key)", file=sys.stderr)
-        return None
-
     try:
         import anthropic
     except ImportError:
         print("[synthesis] skipped — anthropic SDK not installed (uv pip install anthropic)", file=sys.stderr)
         return None
 
+    # An explicit key from env/config wins; otherwise let the SDK resolve its own
+    # credentials (ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN / an `ant` OAuth
+    # profile), so the briefing lights up the moment any of those is present.
+    api_key = _load_api_key(cfg)
     model = llm.get("model", DEFAULT_MODEL)
     effort = llm.get("effort", "medium")
+    # Construction raises TypeError when the SDK finds no credentials at all, and
+    # a call raises AuthenticationError when they are present but rejected. Both
+    # mean the same thing to the user: add a key.
     try:
-        client = anthropic.Anthropic(api_key=api_key)
+        client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+    except (anthropic.AuthenticationError, TypeError):
+        print(
+            "[synthesis] skipped — no Anthropic credentials; put your key in "
+            "argus.local.toml as [llm] api_key, or export ANTHROPIC_API_KEY",
+            file=sys.stderr,
+        )
+        return None
+
+    try:
         resp = client.messages.create(
             model=model,
             max_tokens=int(llm.get("max_tokens", 2000)),
@@ -192,6 +203,12 @@ def generate(
         if briefing is None:
             print("[synthesis] skipped — could not parse model JSON", file=sys.stderr)
         return briefing
+    except anthropic.AuthenticationError:
+        print(
+            "[synthesis] skipped — Anthropic credentials rejected; check [llm] api_key",
+            file=sys.stderr,
+        )
+        return None
     except Exception as exc:  # a broken model must not break the briefing
         print(f"[synthesis] skipped — {type(exc).__name__}: {exc}", file=sys.stderr)
         return None
